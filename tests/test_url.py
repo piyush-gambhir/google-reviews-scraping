@@ -1,5 +1,6 @@
 from grscraper.url import classify_input, maps_search_url, parse_maps_url
 
+# Structurally a real Maps place URL; every identifier in it is synthetic.
 CANONICAL_URL = (
     "https://www.google.com/maps/place/Acme+Coffee+Roasters/"
     "@12.3456789,98.7654321,17z/data=!4m8!3m7!1s0x1234567890abcdef:0xfedcba0987654321"

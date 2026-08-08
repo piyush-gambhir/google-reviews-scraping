@@ -52,6 +52,40 @@ def cmd_retry(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sync(args: argparse.Namespace) -> int:
+    from .sync import sync
+    result = sync(
+        raw_targets="\n".join(args.target) if args.target else None,
+        sink_uris=args.sink or None,
+        headless=not args.debug,
+        limit=args.limit,
+        retry_blocked=not args.no_retry_blocked,
+        only_done=args.only_done,
+        include_internal=args.include_internal,
+    )
+    result.pop("payload", None)
+    run = result["run"]
+    # Summary goes to stderr: the `-` sink owns stdout, so `sync > out.json`
+    # must yield the payload and nothing else.
+    print(
+        f"targets={result['targets']} requeued={result['requeued']} "
+        f"done={run['done']} failed={run['failed']} blocked={run['blocked']} "
+        f"reviews_added={run['reviews_added']} "
+        f"businesses={result['businesses']} reviews={result['reviews']}",
+        file=sys.stderr,
+    )
+    for dest in result["delivery"]["delivered"]:
+        print(f"  -> {dest}", file=sys.stderr)
+    for err in result["delivery"]["errors"]:
+        print(f"  !! {err}", file=sys.stderr)
+    return result["exit_code"]
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    from .server import serve
+    return serve(args.port)
+
+
 def cmd_export(args: argparse.Namespace) -> int:
     from .export import export_businesses, export_combined, export_reviews
     if args.target == "reviews":
@@ -98,6 +132,40 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("target", choices=["reviews", "businesses", "combined"])
     sp.add_argument("--format", choices=["csv", "json", "ndjson"], default="csv")
     sp.set_defaults(func=cmd_export)
+
+    sp = sub.add_parser(
+        "sync",
+        help="one-shot: enqueue targets, scrape, deliver to sinks (for schedulers)",
+    )
+    sp.add_argument(
+        "target", nargs="*",
+        help="business name, Maps URL or place id; may be `value|type`. "
+             "Defaults to $GRS_TARGETS.",
+    )
+    sp.add_argument(
+        "--sink", action="append", default=[],
+        help="delivery URI (-, file://, http(s)://, s3://, gs://); repeatable. "
+             "Defaults to $GRS_SINKS.",
+    )
+    sp.add_argument("--limit", type=int, default=None)
+    sp.add_argument("--debug", action="store_true", help="run headed")
+    sp.add_argument(
+        "--no-retry-blocked", action="store_true",
+        help="do not requeue previously blocked/failed businesses",
+    )
+    sp.add_argument(
+        "--only-done", action="store_true",
+        help="emit only businesses that scraped cleanly",
+    )
+    sp.add_argument(
+        "--include-internal", action="store_true",
+        help="keep queue bookkeeping columns (status, retry_count) in the output",
+    )
+    sp.set_defaults(func=cmd_sync)
+
+    sp = sub.add_parser("serve", help="HTTP mode for Cloud Run services and similar")
+    sp.add_argument("--port", type=int, default=None, help="defaults to $PORT, then 8080")
+    sp.set_defaults(func=cmd_serve)
 
     return p
 

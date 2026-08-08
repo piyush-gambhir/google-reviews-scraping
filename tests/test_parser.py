@@ -24,7 +24,9 @@ def test_parse_first_review_specific_fields():
     html = FIXTURE.read_text(encoding="utf-8")
     reviews = parse_review_cards(html, business_id=42)
     first = reviews[0]
-    # confirmed live: first reviewer is Jordan Rivera, 5 stars, 5 months ago
+    # fixture card 1: 5 stars, 5 months ago, 8 reviews / 2 photos.
+    # The fixture is real Google DOM with synthetic identifiers — the structure
+    # is what matters, the payload is fabricated.
     assert first.reviewer_name == "Jordan Rivera"
     assert first.rating == 5
     assert first.reviewer_url and "/contrib/" in first.reviewer_url

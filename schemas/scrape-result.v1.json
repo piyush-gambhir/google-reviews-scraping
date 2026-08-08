@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/piyush-gambhir/google-reviews-scraping/schemas/scrape-result.v1.json",
+  "title": "grscraper scrape result",
+  "description": "Document emitted by `grscraper sync` and delivered to every configured sink. Objects in `businesses` are identical in shape to one line of `grscraper export combined --format ndjson`.",
+  "type": "object",
+  "required": ["schema_version", "scraper_version", "generated_at", "run", "businesses"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of this envelope. Major bumps are breaking.",
+      "examples": ["1.0"]
+    },
+    "scraper_version": {
+      "type": "string",
+      "description": "grscraper release that produced the document."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC ISO-8601 timestamp, second precision."
+    },
+    "run": {
+      "type": "object",
+      "description": "Outcome of the scrape that produced this document.",
+      "required": ["total", "done", "failed", "blocked", "reviews_added"],
+      "additionalProperties": false,
+      "properties": {
+        "total": { "type": "integer", "minimum": 0, "description": "Businesses dequeued." },
+        "done": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "blocked": {
+          "type": "boolean",
+          "description": "True if Google served a CAPTCHA and the run halted early. The document is still valid but may be incomplete."
+        },
+        "reviews_added": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Reviews new to the store this run. Zero on a re-run with no new reviews is normal, not a failure."
+        }
+      }
+    },
+    "businesses": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/business" }
+    }
+  },
+  "$defs": {
+    "business": {
+      "type": "object",
+      "required": ["id", "input_value", "input_type", "reviews"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer", "description": "Store-local id; stable within one database, not globally." },
+        "input_value": { "type": "string", "description": "Target exactly as supplied." },
+        "input_type": { "type": "string", "enum": ["name", "maps_url", "place_id"] },
+        "place_fingerprint": {
+          "type": ["string", "null"],
+          "description": "Google's hex place identifier (`0x…:0x…`). The most reliable cross-run key."
+        },
+        "google_kg_id": { "type": ["string", "null"], "description": "Knowledge Graph id, e.g. `/g/11examplekg`." },
+        "canonical_url": { "type": ["string", "null"] },
+        "name": { "type": ["string", "null"] },
+        "address": { "type": ["string", "null"] },
+        "category": { "type": ["string", "null"] },
+        "phone": { "type": ["string", "null"] },
+        "website": { "type": ["string", "null"] },
+        "hours_json": { "type": ["string", "null"], "description": "Opening hours as a JSON-encoded string, or null when absent." },
+        "plus_code": { "type": ["string", "null"] },
+        "latitude": { "type": ["number", "null"] },
+        "longitude": { "type": ["number", "null"] },
+        "overall_rating": { "type": ["number", "null"], "minimum": 0, "maximum": 5 },
+        "review_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Total Google reports for the business. May exceed `reviews` length: Google withholds some, and a blocked run truncates."
+        },
+        "status": { "type": "string", "enum": ["queued", "resolving", "scraping", "done", "failed", "blocked"], "description": "Queue bookkeeping. Present only with --include-internal." },
+        "status_reason": { "type": ["string", "null"], "description": "Present only with --include-internal." },
+        "retry_count": { "type": "integer", "minimum": 0, "description": "Present only with --include-internal." },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" },
+        "reviews": { "type": "array", "items": { "$ref": "#/$defs/review" } }
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": ["review_id", "business_id", "photo_urls", "scraped_at", "scraper_version"],
+      "additionalProperties": false,
+      "properties": {
+        "review_id": {
+          "type": "string",
+          "description": "Google's own `data-review-id`. Stable across runs; use it as the dedupe key."
+        },
+        "business_id": { "type": "integer", "description": "Foreign key to businesses[].id." },
+        "reviewer_name": { "type": ["string", "null"] },
+        "reviewer_url": { "type": ["string", "null"], "description": "Reviewer's Google contributor profile." },
+        "reviewer_photo": { "type": ["string", "null"] },
+        "reviewer_reviews": { "type": ["integer", "null"], "minimum": 0, "description": "Lifetime review count for the reviewer, a rough credibility signal." },
+        "reviewer_photos": { "type": ["integer", "null"], "minimum": 0 },
+        "rating": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 },
+        "relative_date": {
+          "type": ["string", "null"],
+          "description": "Google exposes only relative ages (\"2 months ago\"). There is no absolute review timestamp on this surface; derive one against `scraped_at` if you need to sort."
+        },
+        "review_text": { "type": ["string", "null"], "description": "Null for rating-only reviews, which are common." },
+        "review_lang": { "type": ["string", "null"] },
+        "photo_urls": { "type": "array", "items": { "type": "string" } },
+        "owner_reply": { "type": ["string", "null"] },
+        "owner_reply_date": { "type": ["string", "null"], "description": "Also relative." },
+        "scraped_at": { "type": "string", "format": "date-time" },
+        "scraper_version": { "type": "string" }
+      }
+    }
+  }
+}
