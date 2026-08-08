@@ -16,12 +16,38 @@ docker run --rm -v grscraper-data:/data \
   grscraper sync
 ```
 
-Published images:
+## Which image for which platform
+
+There are exactly **two** Dockerfiles, and that is the complete set:
+
+| Dockerfile | Image tag | Covers |
+|---|---|---|
+| `Dockerfile` | `:latest`, `:0.2.1` | Cloud Run **jobs** and **services**, Google Cloud Functions gen2, Kubernetes / CronJob, ECS + Fargate, Azure Container Apps & Container Instances, Fly.io, Render, Railway, Nomad, plain `docker run`, Compose |
+| `Dockerfile.lambda` | `:lambda`, `:lambda-0.2.1` | AWS Lambda only |
+
+Everything except Lambda consumes a standard OCI image, so one image serves them
+all — the `sync` / `serve` argument picks the shape. Lambda is the sole exception
+because it requires the Runtime Interface Client as the entrypoint rather than
+your own process.
+
+Both images are multi-arch on GHCR (`linux/amd64` + `linux/arm64`, with build
+provenance attestations); the Lambda image is `amd64`, matching the default
+function architecture.
+
+## Published images
 
 ```
 ghcr.io/piyush-gambhir/grscraper:latest
-ghcr.io/piyush-gambhir/grscraper:0.2.0
-ghcr.io/piyush-gambhir/grscraper:lambda-0.2.0
+ghcr.io/piyush-gambhir/grscraper:0.2.1
+ghcr.io/piyush-gambhir/grscraper:lambda-0.2.1
+```
+
+Also mirrored to Docker Hub when the publishing repo has `DOCKERHUB_USERNAME`
+(variable) and `DOCKERHUB_TOKEN` (secret) configured:
+
+```
+docker.io/<dockerhub-user>/grscraper:latest
+docker.io/<dockerhub-user>/grscraper:lambda
 ```
 
 ## Read this before you pick a platform
@@ -105,7 +131,7 @@ PROJECT=your-project REGION=asia-south1 REPO=containers
 gcloud artifacts repositories create $REPO \
   --repository-format=docker --location=$REGION 2>/dev/null
 
-IMAGE=$REGION-docker.pkg.dev/$PROJECT/$REPO/grscraper:0.2.0
+IMAGE=$REGION-docker.pkg.dev/$PROJECT/$REPO/grscraper:0.2.1
 docker build -t $IMAGE . && docker push $IMAGE
 ```
 
@@ -206,7 +232,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: grscraper
-              image: ghcr.io/piyush-gambhir/grscraper:0.2.0
+              image: ghcr.io/piyush-gambhir/grscraper:0.2.1
               args: ["sync"]
               env:
                 - name: GRS_TARGETS

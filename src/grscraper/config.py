@@ -23,7 +23,7 @@ USER_AGENT = os.environ.get(
 ACCEPT_LANGUAGE = "en-US,en;q=0.9"
 VIEWPORT = {"width": 1280, "height": 900}
 
-SCRAPER_VERSION = "0.2.0"
+SCRAPER_VERSION = "0.2.1"
 
 # Version of the emitted result envelope (see schemas/scrape-result.v1.json).
 # Bump the major only on a breaking change to the document shape.

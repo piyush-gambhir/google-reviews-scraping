@@ -6,7 +6,7 @@ Machine-readable: [`schemas/scrape-result.v1.json`](../schemas/scrape-result.v1.
 ```json
 {
   "schema_version": "1.0",
-  "scraper_version": "0.2.0",
+  "scraper_version": "0.2.1",
   "generated_at": "2026-08-08T14:41:53+00:00",
   "run": {
     "total": 1, "done": 1, "failed": 0, "blocked": false, "reviews_added": 12
@@ -49,7 +49,7 @@ Machine-readable: [`schemas/scrape-result.v1.json`](../schemas/scrape-result.v1.
           "owner_reply": "Thank you!",
           "owner_reply_date": "a month ago",
           "scraped_at": "2026-08-08T14:03:11+00:00",
-          "scraper_version": "0.2.0"
+          "scraper_version": "0.2.1"
         }
       ]
     }

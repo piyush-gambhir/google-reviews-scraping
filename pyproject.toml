@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "grscraper"
-version = "0.2.0"
+version = "0.2.1"
 description = "Free, resumable Google Maps reviews scraper — deployable as a container"
 readme = "README.md"
 license = { file = "LICENSE" }
