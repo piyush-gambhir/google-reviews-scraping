@@ -125,15 +125,35 @@ costs you the local copy. Any failure sets exit code 3.
 
 A job, not a service: no port, no idle cost, and the scheduler owns retries.
 
-```bash
-PROJECT=your-project REGION=asia-south1 REPO=containers
+Cloud Run deploys **public** GHCR images directly, so there is nothing to copy:
 
+```bash
+PROJECT=your-project REGION=asia-south1
+IMAGE=ghcr.io/piyush-gambhir/grscraper:0.2.1
+```
+
+Pin an immutable tag or a digest, never `:latest` — Cloud Run caches public
+images from GHCR and Docker Hub for up to an hour, so a redeployed `:latest`
+can quietly keep serving the previous build.
+
+<details>
+<summary>Optional: mirror into Artifact Registry</summary>
+
+Only worth it to shave cold-start time — an in-region pull beats a
+cross-network one, and this image is large. It is an optimisation, not a
+requirement. (It *does* become required if you make the package private:
+Cloud Run cannot pull private third-party images without an Artifact Registry
+remote repository.)
+
+```bash
+REPO=containers
 gcloud artifacts repositories create $REPO \
   --repository-format=docker --location=$REGION 2>/dev/null
 
 IMAGE=$REGION-docker.pkg.dev/$PROJECT/$REPO/grscraper:0.2.1
 docker build -t $IMAGE . && docker push $IMAGE
 ```
+</details>
 
 `/data` needs to survive between executions, so back it with a bucket:
 
