@@ -19,6 +19,7 @@ EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_BLOCKED = 2
 EXIT_SINK_FAILED = 3
+EXIT_SCRAPE_FAILED = 4
 
 
 def sync(
@@ -71,6 +72,10 @@ def sync(
 
     if run_result["blocked"]:
         exit_code = EXIT_BLOCKED
+    elif run_result["failed"]:
+        # Surface partial failures. Exiting 0 here would let a weekly schedule
+        # look healthy forever while quietly scraping nothing.
+        exit_code = EXIT_SCRAPE_FAILED
     elif delivery["errors"]:
         exit_code = EXIT_SINK_FAILED
     else:

@@ -1,4 +1,10 @@
-from grscraper.url import classify_input, maps_search_url, parse_maps_url
+from grscraper.url import (
+    cid_from_fingerprint,
+    classify_input,
+    maps_place_by_id_url,
+    maps_search_url,
+    parse_maps_url,
+)
 
 # Structurally a real Maps place URL; every identifier in it is synthetic.
 CANONICAL_URL = (
@@ -31,3 +37,29 @@ def test_classify_input():
 
 def test_maps_search_url_encoding():
     assert "acme%20coffee%20roasters" in maps_search_url("acme coffee roasters")
+
+
+def test_cid_from_fingerprint():
+    # the second half of the hex fingerprint is the CID
+    assert cid_from_fingerprint("0x1234567890abcdef:0xfedcba0987654321") == 0xFEDCBA0987654321
+    assert cid_from_fingerprint("not a fingerprint") is None
+    assert cid_from_fingerprint("/g/11examplekg") is None
+    assert cid_from_fingerprint("") is None
+
+
+def test_place_by_id_url_uses_cid_for_fingerprints():
+    """Only the cid form resolves — verified against a live listing.
+
+    `?q=place_id:0x…` and `query_place_id=0x…` are treated as literal search
+    text; `query_place_id` expects a `ChIJ…` Places id, not the hex form.
+    """
+    url = maps_place_by_id_url("0x1234567890abcdef:0xfedcba0987654321")
+    assert url == f"https://www.google.com/maps?cid={0xFEDCBA0987654321}"
+    assert "place_id:" not in url
+    assert "query_place_id" not in url
+
+
+def test_place_by_id_url_falls_back_to_search_for_kg_ids():
+    # Knowledge Graph ids have no reliable direct URL; search is best-effort.
+    url = maps_place_by_id_url("/g/11examplekg")
+    assert url.startswith("https://www.google.com/maps/search/")

@@ -111,6 +111,25 @@ def run(workers: int = 1, limit: int | None = None, headless: bool = True) -> di
                         biz.id, len(parsed), inserted_for_biz, biz.review_count,
                     )
 
+                    # Zero cards off a resolved place page is a scrape failure,
+                    # not an empty business. It means the reviews pane never
+                    # rendered — bot detection, or selectors that need updating.
+                    # Recording it as `done` would let a scheduled run report
+                    # success while delivering nothing, which is the one failure
+                    # mode nobody notices.
+                    if not parsed:
+                        biz.status = "failed"
+                        biz.status_reason = (
+                            "resolved the place but extracted 0 review cards "
+                            "(bot detection or stale selectors)"
+                        )
+                        biz.retry_count += 1
+                        with transaction(db):
+                            update_business(db, biz)
+                        failed += 1
+                        log.error("biz=%s resolved but yielded no reviews", biz.id)
+                        continue
+
                     biz.status = "done"
                     biz.status_reason = None
                     with transaction(db):

@@ -15,11 +15,11 @@ THROTTLE_SCROLL_MIN_MS = int(os.environ.get("GRS_THROTTLE_SCROLL_MIN_MS", "1500"
 THROTTLE_SCROLL_MAX_MS = int(os.environ.get("GRS_THROTTLE_SCROLL_MAX_MS", "2500"))
 BUSINESS_TIMEOUT_S = int(os.environ.get("GRS_BUSINESS_TIMEOUT_S", "600"))
 
-USER_AGENT = os.environ.get(
-    "GRS_USER_AGENT",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-)
+# Empty by default: use whatever UA the bundled browser reports. A pinned
+# string goes stale as the browser updates, and a UA that disagrees with the
+# engine is a fingerprinting signal in its own right. Override only if you have
+# a reason to.
+USER_AGENT = os.environ.get("GRS_USER_AGENT", "")
 ACCEPT_LANGUAGE = "en-US,en;q=0.9"
 VIEWPORT = {"width": 1280, "height": 900}
 

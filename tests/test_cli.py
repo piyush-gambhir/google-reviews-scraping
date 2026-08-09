@@ -52,3 +52,31 @@ def test_unknown_subcommand_exits_nonzero(isolated):
     with pytest.raises(SystemExit) as excinfo:
         cli.main(["nope"])
     assert excinfo.value.code != 0
+
+
+def test_sync_exit_code_flags_scrape_failures(isolated, monkeypatch, capsys):
+    """A business that resolves but yields nothing must not look like success.
+
+    Regression: `run()` reporting failures still exited 0, so a weekly schedule
+    would stay green forever while scraping nothing.
+    """
+    from grscraper import sync as sync_mod
+
+    monkeypatch.setattr(
+        "grscraper.runner.run",
+        lambda **kw: {"total": 1, "done": 0, "failed": 1,
+                      "blocked": False, "reviews_added": 0},
+    )
+    assert cli.main(["sync", "--sink", "-"]) == sync_mod.EXIT_SCRAPE_FAILED
+    assert "failed=1" in capsys.readouterr().err
+
+
+def test_sync_blocked_takes_precedence_over_failures(isolated, monkeypatch):
+    from grscraper import sync as sync_mod
+
+    monkeypatch.setattr(
+        "grscraper.runner.run",
+        lambda **kw: {"total": 1, "done": 0, "failed": 1,
+                      "blocked": True, "reviews_added": 0},
+    )
+    assert cli.main(["sync", "--sink", "-"]) == sync_mod.EXIT_BLOCKED

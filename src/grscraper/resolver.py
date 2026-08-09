@@ -1,7 +1,6 @@
 import json
 import logging
 import re
-from urllib.parse import quote
 
 from playwright.sync_api import Page
 from playwright.sync_api import TimeoutError as PWTimeout
@@ -9,7 +8,7 @@ from playwright.sync_api import TimeoutError as PWTimeout
 from . import selectors as sel
 from .browser import is_captcha
 from .models import Business
-from .url import maps_search_url, parse_maps_url
+from .url import maps_place_by_id_url, maps_search_url, parse_maps_url
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ def _navigate_for_input(page: Page, biz: Business) -> None:
         url = biz.canonical_url or biz.input_value
     elif biz.input_type == "place_id":
         ident = biz.place_fingerprint or biz.google_kg_id or biz.input_value
-        url = f"https://www.google.com/maps/place/?q=place_id:{quote(ident)}"
+        url = maps_place_by_id_url(ident)
     else:
         url = maps_search_url(biz.input_value)
     page.goto(url, wait_until="domcontentloaded")
