@@ -43,7 +43,7 @@ STEALTH = os.environ.get("GRS_STEALTH", "1").lower() in ("1", "true", "yes")
 # Overrides the browser's timezone; a mismatch against the exit IP is a signal.
 TIMEZONE = os.environ.get("GRS_TIMEZONE", "")
 
-SCRAPER_VERSION = "0.2.2"
+SCRAPER_VERSION = "0.2.3"
 
 # Version of the emitted result envelope (see schemas/scrape-result.v1.json).
 # Bump the major only on a breaking change to the document shape.
