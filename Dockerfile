@@ -12,16 +12,27 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     GRS_DATA_DIR=/data
 
+# xvfb lets the same image run headed (GRS_HEADED=1). Google withholds the
+# reviews pane from some headless configurations, and headed is the most
+# faithful fallback; the entrypoint decides which mode to use at runtime.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Dependency layer first so source edits do not re-resolve the world.
 # LICENSE is required: pyproject declares `license = { file = "LICENSE" }`.
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
+# Install the full Chromium build, not just the headless shell — the shell is
+# what GRS_BROWSER_CHANNEL=chromium exists to avoid.
 RUN pip install --no-cache-dir . \
     && playwright install chromium
 
 COPY schemas ./schemas
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # `pwuser` ships with the base image. /data holds the SQLite queue and the
 # persistent browser profile; mount a volume over it to keep them between runs.
@@ -33,6 +44,6 @@ VOLUME ["/data"]
 ENV PORT=8080
 EXPOSE 8080
 
-ENTRYPOINT ["grscraper"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 # Override with `serve` for a service, or any other subcommand.
 CMD ["sync"]

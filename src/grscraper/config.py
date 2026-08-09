@@ -23,7 +23,27 @@ USER_AGENT = os.environ.get("GRS_USER_AGENT", "")
 ACCEPT_LANGUAGE = "en-US,en;q=0.9"
 VIEWPORT = {"width": 1280, "height": 900}
 
-SCRAPER_VERSION = "0.2.1"
+# --- Anti-detection knobs -------------------------------------------------
+# Google frequently withholds the reviews pane from automated clients without
+# ever showing a CAPTCHA. These exist so a deployment can A/B what helps
+# instead of guessing; see docs/DEPLOY.md.
+#
+# Playwright >= 1.49 resolves headless=True to a separate
+# `chromium_headless_shell` binary. "chromium" selects the full browser in
+# new-headless mode. Set empty to use Playwright's default.
+BROWSER_CHANNEL = os.environ.get("GRS_BROWSER_CHANNEL", "chromium")
+
+# Run headed. In a container this needs an X server — the image wraps the
+# entrypoint in xvfb-run when this is set.
+HEADED = os.environ.get("GRS_HEADED", "").lower() in ("1", "true", "yes")
+
+# Client-hint headers + JS patches that mask automation signals.
+STEALTH = os.environ.get("GRS_STEALTH", "1").lower() in ("1", "true", "yes")
+
+# Overrides the browser's timezone; a mismatch against the exit IP is a signal.
+TIMEZONE = os.environ.get("GRS_TIMEZONE", "")
+
+SCRAPER_VERSION = "0.2.2"
 
 # Version of the emitted result envelope (see schemas/scrape-result.v1.json).
 # Bump the major only on a breaking change to the document shape.
