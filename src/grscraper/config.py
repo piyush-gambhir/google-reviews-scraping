@@ -43,6 +43,25 @@ STEALTH = os.environ.get("GRS_STEALTH", "1").lower() in ("1", "true", "yes")
 # Overrides the browser's timezone; a mismatch against the exit IP is a signal.
 TIMEZONE = os.environ.get("GRS_TIMEZONE", "")
 
+
+def _pane_attempts() -> int:
+    """Attempts per business, each on its own browser context.
+
+    Whether Maps serves the full place panel or the cut-down Overview/About one
+    is decided when the browser context is created and never re-rolls inside it:
+    reloads and new pages in the same context stay degraded, only a brand-new
+    context draws again. So this is the one retry that helps. A bad value falls
+    back to a single attempt rather than aborting a scheduled run.
+    """
+    try:
+        value = int(os.environ.get("GRS_PANE_ATTEMPTS", "3"))
+    except ValueError:
+        return 1
+    return value if value >= 1 else 1
+
+
+PANE_ATTEMPTS = _pane_attempts()
+
 SCRAPER_VERSION = "0.2.3"
 
 # Version of the emitted result envelope (see schemas/scrape-result.v1.json).
@@ -72,3 +91,9 @@ SINK_HTTP_TIMEOUT_S = int(os.environ.get("GRS_SINK_HTTP_TIMEOUT_S", "60"))
 PORT = int(os.environ.get("PORT", os.environ.get("GRS_PORT", "8080")))
 # When set, `POST /scrape` requires `Authorization: Bearer <token>`.
 SERVER_TOKEN = os.environ.get("GRS_SERVER_TOKEN", "")
+# Explicit opt-out for local development or a trusted authenticated ingress.
+ALLOW_UNAUTHENTICATED = os.environ.get("GRS_ALLOW_UNAUTHENTICATED", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)

@@ -1,5 +1,6 @@
 import csv
 import json
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -7,21 +8,52 @@ from . import config
 from .db import connect
 
 REVIEW_COLUMNS = [
-    "review_id", "business_id", "business_name", "business_address",
-    "place_fingerprint", "google_kg_id", "canonical_url",
-    "reviewer_name", "reviewer_url", "reviewer_photo",
-    "reviewer_reviews", "reviewer_photos",
-    "rating", "relative_date", "review_text", "review_lang",
-    "photo_urls_json", "owner_reply", "owner_reply_date",
-    "scraped_at", "scraper_version",
+    "review_id",
+    "business_id",
+    "business_name",
+    "business_address",
+    "place_fingerprint",
+    "google_kg_id",
+    "canonical_url",
+    "reviewer_name",
+    "reviewer_url",
+    "reviewer_photo",
+    "reviewer_reviews",
+    "reviewer_photos",
+    "rating",
+    "relative_date",
+    "review_text",
+    "review_lang",
+    "photo_urls_json",
+    "owner_reply",
+    "owner_reply_date",
+    "scraped_at",
+    "scraper_version",
 ]
 
 BUSINESS_COLUMNS = [
-    "id", "input_value", "input_type", "place_fingerprint", "google_kg_id",
-    "canonical_url", "name", "address", "category", "phone", "website",
-    "hours_json", "plus_code", "latitude", "longitude",
-    "overall_rating", "review_count",
-    "status", "status_reason", "retry_count", "created_at", "updated_at",
+    "id",
+    "input_value",
+    "input_type",
+    "place_fingerprint",
+    "google_kg_id",
+    "canonical_url",
+    "name",
+    "address",
+    "category",
+    "phone",
+    "website",
+    "hours_json",
+    "plus_code",
+    "latitude",
+    "longitude",
+    "overall_rating",
+    "review_count",
+    "status",
+    "status_reason",
+    "retry_count",
+    "created_at",
+    "updated_at",
 ]
 
 
@@ -43,7 +75,7 @@ def export_reviews(fmt: str = "csv") -> Path:
         FROM reviews r JOIN businesses b ON r.business_id = b.id
         ORDER BY b.id, r.review_id
     """
-    with connect() as conn:
+    with closing(connect()) as conn, conn:
         rows = [dict(r) for r in conn.execute(sql).fetchall()]
     _write_rows(out, rows, REVIEW_COLUMNS, fmt)
     return out
@@ -52,7 +84,7 @@ def export_reviews(fmt: str = "csv") -> Path:
 def export_businesses(fmt: str = "json") -> Path:
     out_dir = _ensure_export_dir()
     out = out_dir / f"businesses_{_ts()}.{fmt}"
-    with connect() as conn:
+    with closing(connect()) as conn, conn:
         rows = [dict(r) for r in conn.execute("SELECT * FROM businesses ORDER BY id").fetchall()]
     _write_rows(out, rows, BUSINESS_COLUMNS, fmt)
     return out
@@ -63,13 +95,16 @@ def export_combined(fmt: str = "ndjson") -> Path:
         raise ValueError("combined export supports only ndjson")
     out_dir = _ensure_export_dir()
     out = out_dir / f"combined_{_ts()}.ndjson"
-    with connect() as conn, out.open("w", encoding="utf-8") as fh:
+    with closing(connect()) as conn, conn, out.open("w", encoding="utf-8") as fh:
         for brow in conn.execute("SELECT * FROM businesses ORDER BY id").fetchall():
             biz = dict(brow)
-            reviews = [dict(r) for r in conn.execute(
-                "SELECT * FROM reviews WHERE business_id = ? ORDER BY review_id",
-                (biz["id"],),
-            ).fetchall()]
+            reviews = [
+                dict(r)
+                for r in conn.execute(
+                    "SELECT * FROM reviews WHERE business_id = ? ORDER BY review_id",
+                    (biz["id"],),
+                ).fetchall()
+            ]
             for r in reviews:
                 if r.get("photo_urls_json"):
                     try:

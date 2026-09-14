@@ -1,116 +1,132 @@
-"""Minimal HTTP mode, for platforms that expect a listening port.
+"""Small synchronous HTTP adapter for a single operator-owned queue.
 
-Cloud Run *services*, Knative and most PaaS health-check a port; Cloud Run
-*jobs* and Lambda do not. This exists so one image covers both. It is stdlib
-only — a scraper should not carry a web framework to answer three routes.
-
-`POST /scrape` runs synchronously and can take minutes. Raise the platform's
-request timeout accordingly (Cloud Run allows up to 60 minutes), or prefer a
-job/`sync` deployment, which is the better fit for scheduled work.
+Use behind an authenticated reverse proxy with request/concurrency limits.
+See docs/API.md for the contract and docs/DEPLOY.md for deployment constraints.
 """
 
+import hmac
 import json
 import logging
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlsplit
 
 from . import config
+from .locking import ScrapeBusyError
+from .request import ScrapeRequest
 
 log = logging.getLogger(__name__)
-
-# One browser profile, one SQLite file: concurrent scrapes would corrupt both.
 _scrape_lock = threading.Lock()
+MAX_BODY_BYTES = 1_048_576
 
 
 class Handler(BaseHTTPRequestHandler):
     server_version = f"grscraper/{config.SCRAPER_VERSION}"
+    timeout = 30  # socket reads only; does not terminate browser work
 
-    def log_message(self, fmt: str, *args) -> None:  # noqa: A003 - stdlib hook
+    def log_message(self, fmt: str, *args) -> None:
         log.info("%s - %s", self.address_string(), fmt % args)
 
     def _send(self, status: int, body: dict) -> None:
         raw = json.dumps(body, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
-        self.wfile.write(raw)
+        try:
+            self.wfile.write(raw)
+        except (BrokenPipeError, ConnectionResetError):
+            log.info("client disconnected before receiving response")
 
     def _authorized(self) -> bool:
         if not config.SERVER_TOKEN:
-            return True
-        return self.headers.get("Authorization", "") == f"Bearer {config.SERVER_TOKEN}"
+            return config.ALLOW_UNAUTHENTICATED
+        return hmac.compare_digest(
+            self.headers.get("Authorization", "").encode(),
+            f"Bearer {config.SERVER_TOKEN}".encode(),
+        )
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib hook
-        if self.path in ("/healthz", "/readyz", "/"):
-            self._send(200, {
-                "status": "ok",
-                "scraper_version": config.SCRAPER_VERSION,
-                "schema_version": config.SCHEMA_VERSION,
-                "busy": _scrape_lock.locked(),
-            })
+        if urlsplit(self.path).path in ("/healthz", "/readyz", "/"):
+            self._send(
+                200,
+                {
+                    "status": "ok",
+                    "scraper_version": config.SCRAPER_VERSION,
+                    "schema_version": config.SCHEMA_VERSION,
+                    "busy": _scrape_lock.locked(),
+                },
+            )
             return
         self._send(404, {"error": "not found"})
 
     def do_POST(self) -> None:  # noqa: N802 - stdlib hook
-        if self.path != "/scrape":
+        if urlsplit(self.path).path != "/scrape":
             self._send(404, {"error": "not found"})
             return
         if not self._authorized():
             self._send(401, {"error": "unauthorized"})
             return
-
-        try:
-            length = int(self.headers.get("Content-Length") or 0)
-        except ValueError:
+        if self.headers.get("Transfer-Encoding"):
+            self._send(400, {"error": "Transfer-Encoding is not supported"})
+            return
+        lengths = self.headers.get_all("Content-Length", [])
+        if (
+            len(lengths) > 1
+            or (lengths and not lengths[0].isascii())
+            or (lengths and not lengths[0].isdigit())
+        ):
             self._send(400, {"error": "bad Content-Length"})
             return
-
-        body: dict = {}
-        if length:
-            try:
-                body = json.loads(self.rfile.read(length) or b"{}")
-            except json.JSONDecodeError as e:
-                self._send(400, {"error": f"invalid JSON body: {e}"})
-                return
-        if not isinstance(body, dict):
-            self._send(400, {"error": "body must be a JSON object"})
+        # Compare length text before int conversion (also bounds huge integers).
+        length_text = lengths[0].lstrip("0") if lengths else ""
+        if len(length_text) > 7:
+            self._send(413, {"error": "request body exceeds 1 MiB"})
             return
-
+        length = int(length_text or "0")
+        if length > MAX_BODY_BYTES:
+            self._send(413, {"error": "request body exceeds 1 MiB"})
+            return
+        if length and self.headers.get_content_type() != "application/json":
+            self._send(415, {"error": "Content-Type must be application/json"})
+            return
+        try:
+            raw = self.rfile.read(length) if length else b"{}"
+            if length and len(raw) != length:
+                raise ValueError("incomplete body")
+            body = json.loads(raw.decode("utf-8"))
+            request = ScrapeRequest.parse(body, restrict_sinks=True)
+        except TimeoutError:
+            self._send(408, {"error": "request body timed out"})
+            return
+        except (ValueError, RecursionError):
+            self._send(400, {"error": "invalid request; see docs/API.md"})
+            return
         if not _scrape_lock.acquire(blocking=False):
             self._send(409, {"error": "a scrape is already running"})
             return
         try:
-            from .sync import sync
-
-            targets = body.get("targets")
-            if isinstance(targets, list):
-                targets = "\n".join(str(t) for t in targets)
-            sinks = body.get("sinks")
-            if isinstance(sinks, str):
-                sinks = [s.strip() for s in sinks.split(",") if s.strip()]
-
-            result = sync(
-                raw_targets=targets,
-                sink_uris=sinks,
-                limit=body.get("limit"),
-                include_internal=bool(body.get("include_internal", False)),
-            )
-            payload = result.pop("payload")
-            if body.get("inline_result"):
-                result["result"] = payload
+            result = request.execute()
             self._send(200 if result["exit_code"] == 0 else 502, result)
-        except Exception as e:  # noqa: BLE001 - surface any failure as 500
+        except ScrapeBusyError:
+            self._send(409, {"error": "a scrape is already running"})
+        except Exception:
             log.exception("scrape failed")
-            self._send(500, {"error": repr(e)})
+            self._send(500, {"error": "scrape failed; check server logs"})
         finally:
             _scrape_lock.release()
 
 
 def serve(port: int | None = None) -> int:
-    bind = ("0.0.0.0", port or config.PORT)  # noqa: S104 - containers bind all interfaces
+    if not config.SERVER_TOKEN and not config.ALLOW_UNAUTHENTICATED:
+        raise ValueError("set GRS_SERVER_TOKEN or explicitly set GRS_ALLOW_UNAUTHENTICATED=1")
+    if not config.SERVER_TOKEN:
+        log.warning("HTTP authentication disabled; use only behind trusted ingress")
+    bind = ("0.0.0.0", config.PORT if port is None else port)
     httpd = ThreadingHTTPServer(bind, Handler)
-    log.warning("grscraper serving on http://%s:%d", *bind)
+    log.warning("grscraper serving on http://%s:%d", *httpd.server_address)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

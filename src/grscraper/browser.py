@@ -1,5 +1,6 @@
 import logging
 from contextlib import contextmanager
+from pathlib import Path
 
 from playwright.sync_api import BrowserContext, Page, sync_playwright
 
@@ -9,18 +10,34 @@ log = logging.getLogger(__name__)
 
 
 @contextmanager
-def browser_context(headless: bool = True):
+def browser_context(headless: bool = True, profile_dir: Path | None = None):
     """Yield a Playwright persistent BrowserContext + page factory.
 
     Persistent profile keeps cookies between runs so we look like a returning
-    user. Caller iterates many businesses against the same context but creates
-    a fresh page per business via the yielded `new_page()` callable.
+    user. `profile_dir` overrides it so a caller can retry a business on a
+    profile Google has not seen; the runner uses a throwaway directory there
+    because the reviews-pane bucket below is sticky per user_data_dir.
 
     Detection matters more than it looks. Google's usual response to an
-    automated client is not a CAPTCHA — it renders the place panel normally
-    while withholding the reviews tab and every review card, so the run reports
-    success having scraped nothing. Three knobs exist to fight that, all
-    switchable via env so a deployment can A/B them (see docs/DEPLOY.md):
+    automated client is not a CAPTCHA — it serves the "limited view" panel,
+    which renders the place with rating, address and hours but withholds the
+    reviews tab and every review card, so a naive run reports success having
+    scraped nothing. `reviews.is_limited_view` identifies it by name.
+
+    What actually moves the needle, measured against a live listing rather than
+    assumed:
+
+    * The draw is made when the CONTEXT is created and never re-rolls inside it
+      — reloads and new pages in a degraded context stay degraded. Only a fresh
+      context draws again, which is why `runner` retries per business with a new
+      context instead of retrying the page.
+    * Headed made no difference: 3/5 headed vs 3/5 headless over interleaved
+      trials. Do not reach for `GRS_HEADED` expecting it to fix withholding.
+    * Google's own copy attributes limited view to "unusual traffic" on the
+      network, and per-session yield decayed (45 -> 10 -> 5 preloaded reviews)
+      as request volume rose. Pacing is worth more than fingerprint tweaking.
+
+    Knobs, all switchable via env:
 
     * `GRS_BROWSER_CHANNEL` (default "chromium") — Playwright >= 1.49 resolves
       `headless=True` to a separate `chromium_headless_shell` binary, which is
@@ -29,14 +46,17 @@ def browser_context(headless: bool = True):
     * `GRS_HEADED` — run headed. Needs an X server in a container; the image
       wraps the entrypoint in `xvfb-run` when this is set.
     * `GRS_STEALTH` (default on) — Chrome client-hint headers plus JS patches
-      for the automation signals headless fails.
+      for the automation signals headless fails. Note these headers are applied
+      context-wide, so only headers valid on every request may go in them; see
+      `stealth.client_hint_headers`.
     """
-    config.BROWSER_PROFILE.mkdir(parents=True, exist_ok=True)
+    profile = profile_dir or config.BROWSER_PROFILE
+    profile.mkdir(parents=True, exist_ok=True)
     if config.HEADED:
         headless = False
 
     launch_kwargs = dict(
-        user_data_dir=str(config.BROWSER_PROFILE),
+        user_data_dir=str(profile),
         headless=headless,
         viewport=config.VIEWPORT,
         locale="en-US",

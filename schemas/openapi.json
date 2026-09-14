@@ -1,0 +1,461 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "grscraper HTTP API",
+    "version": "0.2.3",
+    "description": "Synchronous single-operator API. See docs/API.md for operational limits and explicit authentication opt-out."
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "rootProbe",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Liveness alias; busy reflects this HTTP process only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Probe"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "healthProbe",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Liveness alias; busy reflects this HTTP process only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Probe"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readyProbe",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Liveness alias; busy reflects this HTTP process only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Probe"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scrape": {
+      "post": {
+        "operationId": "scrape",
+        "summary": "Synchronously scrape the shared operator queue",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScrapeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sync succeeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResult"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Blocked work, scrape failure, or sink delivery failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "Body read timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Scrape already running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body exceeds 1 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "ScrapeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "targets": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sinks": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "HTTP selections must exactly match configured GRS_SINKS"
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "inline_result": {
+            "type": "boolean",
+            "default": false
+          },
+          "include_internal": {
+            "type": "boolean",
+            "default": false
+          },
+          "refresh": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "SyncResult": {
+        "type": "object",
+        "required": [
+          "targets",
+          "ingested",
+          "requeued",
+          "run",
+          "delivery",
+          "businesses",
+          "reviews",
+          "exit_code",
+          "blocked_remaining",
+          "retries_exhausted"
+        ],
+        "properties": {
+          "targets": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "requeued": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "businesses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviews": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blocked_remaining": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "retries_exhausted": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "ingested": {
+            "type": "object",
+            "required": [
+              "inserted",
+              "skipped"
+            ],
+            "properties": {
+              "inserted": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "skipped": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "run": {
+            "type": "object",
+            "description": "Runner summary. The counters mirror `run` in the delivered document; `coverage` is reported here only.",
+            "required": [
+              "total",
+              "done",
+              "failed",
+              "blocked",
+              "reviews_added",
+              "coverage"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "total": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Businesses dequeued."
+              },
+              "done": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "blocked": {
+                "type": "boolean",
+                "description": "True if Google served a CAPTCHA and the run halted early."
+              },
+              "reviews_added": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Reviews new to the store this run."
+              },
+              "coverage": {
+                "type": "array",
+                "description": "One entry per business attempted. Scraping without an API key is partial by nature; this says how partial, so `done` is never read as complete.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "business_id",
+                    "collected",
+                    "advertised",
+                    "ratio"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "business_id": {
+                      "type": "integer"
+                    },
+                    "collected": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Review cards parsed for this business this run."
+                    },
+                    "advertised": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "description": "Review count Google shows for the place, when known."
+                    },
+                    "ratio": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "description": "collected/advertised to 3 dp. Null when Google advertises no count."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "delivery": {
+            "type": "object",
+            "required": [
+              "delivered",
+              "errors"
+            ],
+            "properties": {
+              "delivered": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "errors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "exit_code": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          "result": {
+            "$ref": "scrape-result.v1.json",
+            "description": "Present only with inline_result=true"
+          }
+        }
+      },
+      "Probe": {
+        "type": "object",
+        "required": [
+          "status",
+          "scraper_version",
+          "schema_version",
+          "busy"
+        ],
+        "properties": {
+          "status": {
+            "const": "ok"
+          },
+          "scraper_version": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "busy": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import json
 import sqlite3
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -85,7 +85,7 @@ def connect(db_path: Path | None = None) -> sqlite3.Connection:
 
 def init_db(db_path: Path | None = None) -> Path:
     path = db_path or config.DB_PATH
-    with connect(path) as conn:
+    with closing(connect(path)) as conn, conn:
         conn.executescript(SCHEMA)
         conn.commit()
     return path
@@ -127,10 +127,27 @@ def insert_business(conn: sqlite3.Connection, b: Business) -> int | None:
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,
         (
-            b.input_value, b.input_type, b.place_fingerprint, b.google_kg_id, b.canonical_url,
-            b.name, b.address, b.category, b.phone, b.website, b.hours_json, b.plus_code,
-            b.latitude, b.longitude, b.overall_rating, b.review_count,
-            b.status, b.status_reason, b.retry_count, now, now,
+            b.input_value,
+            b.input_type,
+            b.place_fingerprint,
+            b.google_kg_id,
+            b.canonical_url,
+            b.name,
+            b.address,
+            b.category,
+            b.phone,
+            b.website,
+            b.hours_json,
+            b.plus_code,
+            b.latitude,
+            b.longitude,
+            b.overall_rating,
+            b.review_count,
+            b.status,
+            b.status_reason,
+            b.retry_count,
+            now,
+            now,
         ),
     )
     return cur.lastrowid
@@ -150,11 +167,24 @@ def update_business(conn: sqlite3.Connection, b: Business) -> None:
         WHERE id = ?
         """,
         (
-            b.place_fingerprint, b.google_kg_id, b.canonical_url,
-            b.name, b.address, b.category, b.phone, b.website,
-            b.hours_json, b.plus_code, b.latitude, b.longitude,
-            b.overall_rating, b.review_count,
-            b.status, b.status_reason, b.retry_count, utcnow(),
+            b.place_fingerprint,
+            b.google_kg_id,
+            b.canonical_url,
+            b.name,
+            b.address,
+            b.category,
+            b.phone,
+            b.website,
+            b.hours_json,
+            b.plus_code,
+            b.latitude,
+            b.longitude,
+            b.overall_rating,
+            b.review_count,
+            b.status,
+            b.status_reason,
+            b.retry_count,
+            utcnow(),
             b.id,
         ),
     )
@@ -207,32 +237,40 @@ def fetch_next_businesses(
 def upsert_review(conn: sqlite3.Connection, r: Review) -> bool:
     """Insert if absent. Returns True if inserted, False if duplicate."""
     photos_json = json.dumps(r.photo_urls) if r.photo_urls else None
-    try:
-        conn.execute(
-            """
-            INSERT INTO reviews
-              (review_id, business_id, reviewer_name, reviewer_url, reviewer_photo,
-               reviewer_reviews, reviewer_photos, rating, relative_date, review_text,
-               review_lang, photo_urls_json, owner_reply, owner_reply_date,
-               scraped_at, scraper_version)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-            """,
-            (
-                r.review_id, r.business_id, r.reviewer_name, r.reviewer_url, r.reviewer_photo,
-                r.reviewer_reviews, r.reviewer_photos, r.rating, r.relative_date, r.review_text,
-                r.review_lang, photos_json, r.owner_reply, r.owner_reply_date,
-                r.scraped_at or utcnow(), r.scraper_version or config.SCRAPER_VERSION,
-            ),
-        )
-        return True
-    except sqlite3.IntegrityError:
-        return False
+    cur = conn.execute(
+        """
+        INSERT INTO reviews
+          (review_id, business_id, reviewer_name, reviewer_url, reviewer_photo,
+           reviewer_reviews, reviewer_photos, rating, relative_date, review_text,
+           review_lang, photo_urls_json, owner_reply, owner_reply_date,
+           scraped_at, scraper_version)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(review_id) DO NOTHING
+        """,
+        (
+            r.review_id,
+            r.business_id,
+            r.reviewer_name,
+            r.reviewer_url,
+            r.reviewer_photo,
+            r.reviewer_reviews,
+            r.reviewer_photos,
+            r.rating,
+            r.relative_date,
+            r.review_text,
+            r.review_lang,
+            photos_json,
+            r.owner_reply,
+            r.owner_reply_date,
+            r.scraped_at or utcnow(),
+            r.scraper_version or config.SCRAPER_VERSION,
+        ),
+    )
+    return cur.rowcount == 1
 
 
 def status_counts(conn: sqlite3.Connection) -> dict[str, int]:
-    rows = conn.execute(
-        "SELECT status, COUNT(*) AS n FROM businesses GROUP BY status"
-    ).fetchall()
+    rows = conn.execute("SELECT status, COUNT(*) AS n FROM businesses GROUP BY status").fetchall()
     return {r["status"]: r["n"] for r in rows}
 
 
@@ -270,3 +308,20 @@ def finish_run(
         """,
         (utcnow(), done, failed, reviews_added, notes, run_id),
     )
+
+
+def recover_interrupted(conn: sqlite3.Connection) -> int:
+    """Only call under the exclusive scrape lock, before starting a new run."""
+    now = utcnow()
+    cur = conn.execute(
+        "UPDATE businesses SET status='failed', retry_count=retry_count+1, "
+        "status_reason='previous run interrupted', updated_at=? "
+        "WHERE status IN ('resolving', 'scraping')",
+        (now,),
+    )
+    conn.execute(
+        "UPDATE scrape_runs SET finished_at=?, notes='previous run interrupted' "
+        "WHERE finished_at IS NULL",
+        (now,),
+    )
+    return cur.rowcount

@@ -23,7 +23,30 @@ def test_client_hints_omitted_when_version_unknown():
     # better to send no client hints than ones invented from nothing
     h = client_hint_headers("some non-chrome agent")
     assert "Sec-CH-UA" not in h
-    assert "Accept" in h
+    assert h["Accept-Language"] == "en-US,en;q=0.9"
+
+
+def test_no_navigation_only_headers():
+    """These are applied context-wide, so they must be valid on every request.
+
+    Regression test. `Sec-Fetch-*` and `Upgrade-Insecure-Requests` are
+    browser-controlled per request: forcing them onto subresources makes
+    Chromium reject those loads with net::ERR_INVALID_ARGUMENT, and Maps
+    renders an empty body. A document `Accept: text/html,...` on Maps' review
+    XHRs makes Google answer them with HTML, so the panel renders with no
+    reviews tab and no review cards -- the exact "reviews withheld" symptom
+    this module exists to avoid.
+    """
+    forbidden = {
+        "Accept",
+        "Upgrade-Insecure-Requests",
+        "Sec-Fetch-Dest",
+        "Sec-Fetch-Mode",
+        "Sec-Fetch-Site",
+        "Sec-Fetch-User",
+    }
+    for ua in (UA, "some non-chrome agent"):
+        assert forbidden.isdisjoint(client_hint_headers(ua))
 
 
 def test_platform_is_overridable():

@@ -12,6 +12,7 @@ Shape is pinned by schemas/scrape-result.v1.json.
 
 import json
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime
 
 from . import config
@@ -73,7 +74,7 @@ def build(
     bookkeeping columns, which is what you want when publishing to a consumer
     that has no idea what `retry_count` means.
     """
-    with connect() as conn:
+    with closing(connect()) as conn, conn:
         businesses = business_rows(conn, only_done=only_done)
 
     if not include_internal:

@@ -7,10 +7,11 @@ same classification the file path uses.
 """
 
 import re
+from contextlib import closing
 
 from .db import connect, insert_business, transaction
 from .models import Business
-from .url import classify_input, parse_maps_url
+from .url import classify_input, fingerprint_from_place_id, parse_maps_url
 
 _SPLIT = re.compile(r"[\n;]+")
 
@@ -51,7 +52,7 @@ def ingest_targets(targets: list[tuple[str, str | None]], db_path=None) -> dict:
     inserted = skipped = 0
     if not targets:
         return {"inserted": 0, "skipped": 0}
-    with connect(db_path) as conn, transaction(conn):
+    with closing(connect(db_path)) as conn, conn, transaction(conn):
         for value, declared_type in targets:
             input_type = declared_type or classify_input(value)
             biz = Business(input_value=value, input_type=input_type)
@@ -66,7 +67,11 @@ def ingest_targets(targets: list[tuple[str, str | None]], db_path=None) -> dict:
                 if value.startswith("/g/"):
                     biz.google_kg_id = value
                 else:
-                    biz.place_fingerprint = value
+                    # A `ChIJ…` Places API id decodes straight to the hex
+                    # fingerprint. Every Maps surface speaks hex and none accept
+                    # `ChIJ…`, so storing it undecoded would send a literal
+                    # place id into a URL slot that cannot resolve it.
+                    biz.place_fingerprint = fingerprint_from_place_id(value) or value
             if insert_business(conn, biz) is None:
                 skipped += 1
             else:

@@ -8,6 +8,8 @@ base image stays at two runtime dependencies.
 
 import json
 import logging
+import os
+import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -52,8 +54,23 @@ def _write_file(payload: dict, uri: str) -> str:
     else:
         path = Path(uri)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(_encode(payload))
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as temp:
+            temp_path = Path(temp.name)
+            temp.write(_encode(payload))
+            temp.flush()
+            os.fsync(temp.fileno())
+        os.replace(temp_path, path)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
     return str(path)
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def _write_http(payload: dict, uri: str) -> str:
@@ -61,7 +78,9 @@ def _write_http(payload: dict, uri: str) -> str:
         uri, data=_encode(payload), headers=_http_headers(), method="POST"
     )
     try:
-        with urllib.request.urlopen(request, timeout=config.SINK_HTTP_TIMEOUT_S) as resp:
+        with urllib.request.build_opener(_NoRedirect()).open(
+            request, timeout=config.SINK_HTTP_TIMEOUT_S
+        ) as resp:
             status = resp.status
     except urllib.error.HTTPError as e:
         body = ""
@@ -136,7 +155,7 @@ def deliver(payload: dict, uris: list[str]) -> dict:
         try:
             delivered.append(deliver_one(payload, uri))
             log.info("delivered to %s", uri)
-        except SinkError as e:
+        except Exception as e:  # SDK, socket and filesystem errors vary by sink
             errors.append(str(e))
             log.error("sink failed: %s", e)
     return {"delivered": delivered, "errors": errors}

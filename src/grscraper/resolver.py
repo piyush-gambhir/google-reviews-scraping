@@ -41,7 +41,14 @@ def _wait_for_place_url(page: Page, max_ms: int = 8000) -> bool:
 
 def _navigate_for_input(page: Page, biz: Business) -> None:
     if biz.input_type == "maps_url":
-        url = biz.canonical_url or biz.input_value
+        # A URL copied out of Maps *search results* carries the originating
+        # query in its data payload, and that form reliably comes back as the
+        # cut-down panel: measured 0/5 against a live listing, versus a place
+        # page every time via `?cid=`. Once we have the fingerprint the URL the
+        # user pasted has told us everything it can, so stop navigating to it.
+        url = maps_place_by_id_url(biz.place_fingerprint) if biz.place_fingerprint else (
+            biz.canonical_url or biz.input_value
+        )
     elif biz.input_type == "place_id":
         ident = biz.place_fingerprint or biz.google_kg_id or biz.input_value
         url = maps_place_by_id_url(ident)
@@ -96,6 +103,16 @@ def _extract_review_count_from_block(text: str | None) -> int | None:
     if not text:
         return None
     m = re.search(r"\(([\d,]+)\)", text)
+    if not m:
+        return None
+    return int(m.group(1).replace(",", ""))
+
+
+def _extract_review_count_from_aria(text: str | None) -> int | None:
+    """Parse '1,086 reviews' from the count span's aria-label."""
+    if not text:
+        return None
+    m = re.search(r"([\d,]+)\s+review", text)
     if not m:
         return None
     return int(m.group(1).replace(",", ""))
@@ -168,7 +185,9 @@ def resolve(page: Page, biz: Business) -> Business:
 
     rating_block_text = _text_or_none(page, sel.PLACE_RATING_AND_COUNT_BLOCK)
     biz.overall_rating = _extract_rating(rating_block_text)
-    biz.review_count = _extract_review_count_from_block(rating_block_text)
+    biz.review_count = _extract_review_count_from_aria(
+        _attr_or_none(page, sel.PLACE_REVIEW_COUNT_ARIA, "aria-label")
+    ) or _extract_review_count_from_block(rating_block_text)
 
     biz.hours_json = _scrape_hours(page)
 

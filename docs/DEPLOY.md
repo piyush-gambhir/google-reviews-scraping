@@ -30,9 +30,8 @@ all — the `sync` / `serve` argument picks the shape. Lambda is the sole except
 because it requires the Runtime Interface Client as the entrypoint rather than
 your own process.
 
-Both images are multi-arch on GHCR (`linux/amd64` + `linux/arm64`, with build
-provenance attestations); the Lambda image is `amd64`, matching the default
-function architecture.
+The standard publishing workflow targets `linux/amd64` and `linux/arm64`.
+The Lambda workflow targets `linux/amd64`. Check the selected registry tag before deployment.
 
 ## Published images
 
@@ -93,7 +92,8 @@ Targets and delivery are the only things most deployments set.
 | `GRS_SINK_HTTP_TOKEN` | — | Bearer token for `http(s)` sinks |
 | `GRS_SINK_HTTP_HEADERS` | — | Extra headers, JSON object |
 | `GRS_SINK_HTTP_TIMEOUT_S` | `60` | Per-sink HTTP timeout |
-| `GRS_SERVER_TOKEN` | — | If set, `POST /scrape` requires this bearer token |
+| `GRS_SERVER_TOKEN` | — | Required for HTTP mode unless authentication is explicitly disabled |
+| `GRS_ALLOW_UNAUTHENTICATED` | false | Explicit auth opt-out for development or trusted ingress |
 | `GRS_DATA_DIR` | `/data` | Root for db, profile, exports |
 | `PORT` | `8080` | `serve` bind port |
 
@@ -110,7 +110,7 @@ Throttles, retries and user agent are unchanged from the [README](../README.md).
 | `gs://bucket/object.json` | needs the `[gcs]` extra |
 
 Every sink is attempted even if an earlier one fails, so a dead webhook never
-costs you the local copy. Any failure sets exit code 3.
+costs you the local copy. A delivery failure sets exit code 3 unless blocked work or scrape failures take precedence. HTTP redirects are rejected, so configure the final destination URL.
 
 ### Exit codes
 
@@ -120,6 +120,7 @@ costs you the local copy. Any failure sets exit code 3.
 | 1 | Unhandled error | Alert |
 | 2 | CAPTCHA — run halted early | **Alert, do not auto-retry.** Retrying while blocked deepens the block. Back off for hours. |
 | 3 | Scrape fine, a sink failed | Retry delivery, not the scrape |
+| 4 | Scrape failures or exhausted retries | Inspect failures; reset budgets only after fixing the cause |
 
 ## Cloud Run job (recommended for scheduled work)
 
@@ -155,11 +156,16 @@ docker build -t $IMAGE . && docker push $IMAGE
 ```
 </details>
 
-`/data` needs to survive between executions, so back it with a bucket:
+**Do not put the SQLite database or Chromium profile on a Cloud Storage
+bucket mount.** Cloud Storage FUSE lacks file locking and file patching
+([Google documentation](https://docs.cloud.google.com/storage/docs/cloud-storage-fuse/overview)).
+Use local writable disk for an ephemeral Cloud Run job, or a single writer on
+persistent local/block storage (for example a VM or Kubernetes PVC). The code's
+process lock does not make object storage a database filesystem.
+
+For an ephemeral Cloud Run job, use inline/configured targets every invocation:
 
 ```bash
-gcloud storage buckets create gs://$PROJECT-grscraper-state --location=$REGION
-
 gcloud run jobs create grscraper-sync \
   --image=$IMAGE \
   --region=$REGION \
@@ -167,13 +173,17 @@ gcloud run jobs create grscraper-sync \
   --task-timeout=3600 \
   --max-retries=0 \
   --memory=2Gi --cpu=2 \
-  --set-env-vars=GRS_TARGETS="acme coffee roasters",GRS_SINKS="gs://$PROJECT-grscraper-out/reviews.json" \
-  --add-volume=name=state,type=cloud-storage,bucket=$PROJECT-grscraper-state \
-  --add-volume-mount=volume=state,mount-path=/data
+  --set-env-vars=GRS_TARGETS="acme coffee roasters",GRS_SINKS="https://example.com/ingest"
 ```
 
+This job does **not** preserve deduplication, retry budgets, or browser cookies
+across new instances. Use S3/GCS for result delivery, not the live SQLite file.
+Cloud sinks need their optional SDK installed in a derived image; the standard
+Dockerfile installs only the base package. Cross-instance persistence needs an
+explicit state architecture before using this as a durable scheduled service.
+
 `--max-retries=0` is deliberate: exit code 2 means Google blocked you, and an
-immediate retry makes that worse. Let the weekly schedule be the retry.
+immediate retry makes that worse. Inspect the block and explicitly requeue it only after recovery; the next schedule does not clear blocked state.
 
 2Gi is not padding — Chromium with a long review list will OOM at 512Mi.
 
@@ -195,14 +205,16 @@ Run it once by hand first — `gcloud run jobs execute grscraper-sync --region=$
 
 Only if you need on-demand triggering. Scraping is slow, so the request
 timeout has to be raised and concurrency pinned to 1 (one SQLite file, one
-browser profile — parallel scrapes corrupt both; the server also refuses
-overlapping requests with a 409).
+browser profile — overlapping work is refused with a 409). Process locks
+coordinate local writers only. Cloud Run local state remains ephemeral; an
+instance limit does not make it persistent. Use one replica and persistent
+local storage when durable queue state matters.
 
 ```bash
 gcloud run deploy grscraper \
   --image=$IMAGE --region=$REGION \
   --args=serve \
-  --timeout=3600 --concurrency=1 --min-instances=0 \
+  --timeout=3600 --concurrency=1 --min-instances=0 --max-instances=1 \
   --memory=2Gi --cpu=2 \
   --no-allow-unauthenticated \
   --set-env-vars=GRS_SERVER_TOKEN=... 
@@ -211,7 +223,7 @@ gcloud run deploy grscraper \
 | Route | |
 |---|---|
 | `GET /healthz` | liveness; also reports `busy` |
-| `POST /scrape` | body: `{"targets": [...], "sinks": [...], "limit": N, "inline_result": false}` |
+| `POST /scrape` | Authenticated synchronous trigger; see [API.md](API.md) |
 
 ## AWS Lambda
 
@@ -220,9 +232,11 @@ Workable, with two constraints that rule it out for large jobs:
 - **15-minute hard ceiling.** Default throttle is 5–15s per business plus
   scroll time. A handful per invocation is realistic; a long queue is not.
   Pass `limit` and invoke repeatedly.
-- **Ephemeral `/tmp`.** The queue and browser profile reset every invocation,
-  which costs cross-run dedupe and CAPTCHA persistence. Mount EFS and point
-  `GRS_DATA_DIR` at it to get them back.
+- **Ephemeral `/tmp`.** Warm invocations can reuse state, but replacement
+  environments start empty. Do not depend on this for cross-run dedupe or
+  CAPTCHA persistence. This SQLite/profile architecture has not been validated
+  for EFS or multiple Lambda environments; use a single durable worker when
+  persistent state is required.
 
 ```bash
 docker build -f Dockerfile.lambda -t grscraper-lambda .

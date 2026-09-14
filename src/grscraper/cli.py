@@ -1,10 +1,12 @@
 import argparse
 import logging
 import sys
+from contextlib import closing
 from pathlib import Path
 
 from . import config
 from .db import connect, init_db, reset_status, status_counts
+from .locking import exclusive_scrape
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -15,13 +17,14 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def cmd_ingest(args: argparse.Namespace) -> int:
     from .ingest import ingest_file
+
     result = ingest_file(Path(args.path))
     print(f"inserted={result['inserted']} skipped={result['skipped']}")
     return 0
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    with connect() as conn:
+    with closing(connect()) as conn, conn:
         counts = status_counts(conn)
     if not counts:
         print("(no businesses)")
@@ -34,6 +37,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 def cmd_run(args: argparse.Namespace) -> int:
     from .runner import run
+
     headless = not args.debug if args.debug else args.headless
     result = run(workers=args.workers, limit=args.limit, headless=headless)
     print(
@@ -41,11 +45,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         f"failed={result['failed']} blocked={result['blocked']} "
         f"reviews_added={result['reviews_added']}"
     )
-    return 0 if not result["blocked"] else 2
+    return 2 if result["blocked"] else (4 if result["failed"] else 0)
 
 
+@exclusive_scrape
 def cmd_retry(args: argparse.Namespace) -> int:
-    with connect() as conn:
+    with closing(connect()) as conn, conn:
         n = reset_status(conn, from_status=args.status, to_status="queued")
         conn.commit()
     print(f"requeued {n} businesses (was status={args.status})")
@@ -54,12 +59,14 @@ def cmd_retry(args: argparse.Namespace) -> int:
 
 def cmd_sync(args: argparse.Namespace) -> int:
     from .sync import sync
+
     result = sync(
         raw_targets="\n".join(args.target) if args.target else None,
         sink_uris=args.sink or None,
         headless=not args.debug,
         limit=args.limit,
-        retry_blocked=not args.no_retry_blocked,
+        retry_blocked=args.retry_blocked,
+        refresh=not args.no_refresh,
         only_done=args.only_done,
         include_internal=args.include_internal,
     )
@@ -83,11 +90,13 @@ def cmd_sync(args: argparse.Namespace) -> int:
 
 def cmd_serve(args: argparse.Namespace) -> int:
     from .server import serve
+
     return serve(args.port)
 
 
 def cmd_export(args: argparse.Namespace) -> int:
     from .export import export_businesses, export_combined, export_reviews
+
     if args.target == "reviews":
         out = export_reviews(args.format)
     elif args.target == "businesses":
@@ -138,27 +147,42 @@ def build_parser() -> argparse.ArgumentParser:
         help="one-shot: enqueue targets, scrape, deliver to sinks (for schedulers)",
     )
     sp.add_argument(
-        "target", nargs="*",
-        help="business name, Maps URL or place id; may be `value|type`. "
-             "Defaults to $GRS_TARGETS.",
+        "target",
+        nargs="*",
+        help="business name, Maps URL or place id; may be `value|type`. Defaults to $GRS_TARGETS.",
     )
     sp.add_argument(
-        "--sink", action="append", default=[],
+        "--sink",
+        action="append",
+        default=[],
         help="delivery URI (-, file://, http(s)://, s3://, gs://); repeatable. "
-             "Defaults to $GRS_SINKS.",
+        "Defaults to $GRS_SINKS.",
     )
     sp.add_argument("--limit", type=int, default=None)
     sp.add_argument("--debug", action="store_true", help="run headed")
     sp.add_argument(
-        "--no-retry-blocked", action="store_true",
-        help="do not requeue previously blocked/failed businesses",
+        "--no-retry-blocked",
+        action="store_true",
+        help="deprecated: blocked businesses are no longer retried by default",
     )
     sp.add_argument(
-        "--only-done", action="store_true",
+        "--retry-blocked",
+        action="store_true",
+        help="explicitly requeue blocked businesses after operator review",
+    )
+    sp.add_argument(
+        "--no-refresh",
+        action="store_true",
+        help="do not requeue requested businesses that are already done",
+    )
+    sp.add_argument(
+        "--only-done",
+        action="store_true",
         help="emit only businesses that scraped cleanly",
     )
     sp.add_argument(
-        "--include-internal", action="store_true",
+        "--include-internal",
+        action="store_true",
         help="keep queue bookkeeping columns (status, retry_count) in the output",
     )
     sp.set_defaults(func=cmd_sync)

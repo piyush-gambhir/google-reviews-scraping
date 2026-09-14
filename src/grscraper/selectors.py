@@ -31,6 +31,10 @@ REVIEW_CARD_FIELDS = {
 PLACE_TITLE = "h1.DUwDvf"
 PLACE_RATING_AND_COUNT_BLOCK = "div.F7nice"
 PLACE_RATING = "div.F7nice span[aria-hidden]"
+# The count also rides an aria-label ("1,086 reviews") on a sibling span. That
+# label survives in panels where the "(1,086)" text does not render, so it is
+# the more reliable of the two sources.
+PLACE_REVIEW_COUNT_ARIA = 'div.F7nice span[role="img"][aria-label*="review"]'
 PLACE_CATEGORY = "button.DkEaL"
 PLACE_ADDRESS = 'button[data-item-id="address"]'
 PLACE_ADDRESS_TEXT = "div.Io6YTe"
@@ -41,3 +45,11 @@ PLACE_HOURS_BTN = 'button[data-item-id="oh"]'
 PLACE_HOURS_TABLE = "table.eK4R0e tr"
 
 CAPTCHA_URL_FRAGMENT = "/sorry/index"
+
+# Google's "limited view" panel, shipped Feb 2026. It renders the place with
+# rating, address and hours but strips reviews, photos and popular times, and
+# carries only Overview/About tabs. Google's own copy says it appears when
+# "unusual traffic" is seen on your network. Matching the phrase is what lets us
+# report a withheld pane as exactly that, instead of as "this place has no
+# reviews" — the two are indistinguishable from the DOM alone.
+LIMITED_VIEW_TEXT = "limited view"
