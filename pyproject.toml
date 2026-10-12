@@ -31,7 +31,7 @@ s3 = ["boto3>=1.43"]
 gcs = ["google-cloud-storage>=2.14"]
 dev = [
     "pytest>=9.1",
-    "ruff>=0.6",
+    "ruff>=0.17",
     "jsonschema>=4.26",
 ]
 
