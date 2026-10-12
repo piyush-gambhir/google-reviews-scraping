@@ -22,7 +22,7 @@ RUN apt-get update \
 WORKDIR /app
 
 # Dependency layer first so source edits do not re-resolve the world.
-# LICENSE is required: pyproject declares `license = { file = "LICENSE" }`.
+# LICENSE is required: pyproject lists it in `license-files`.
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 # Install the full Chromium build, not just the headless shell — the shell is

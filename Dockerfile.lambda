@@ -17,7 +17,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /var/task
 
-# LICENSE is required: pyproject declares `license = { file = "LICENSE" }`.
+# LICENSE is required: pyproject lists it in `license-files`.
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 RUN pip install --no-cache-dir . awslambdaric \
