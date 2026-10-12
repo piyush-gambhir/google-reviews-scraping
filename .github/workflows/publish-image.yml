@@ -21,7 +21,8 @@ env:
 jobs:
   publish:
     name: GHCR (standard)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
@@ -69,7 +70,8 @@ jobs:
 
   publish-lambda:
     name: GHCR (lambda)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: write
@@ -106,7 +108,8 @@ jobs:
 
   publish-dockerhub:
     name: Docker Hub (standard)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     # Skips entirely when Docker Hub is not configured.
     if: vars.DOCKERHUB_USERNAME != ''
     steps:
@@ -148,7 +151,8 @@ jobs:
 
   publish-dockerhub-lambda:
     name: Docker Hub (lambda)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     if: vars.DOCKERHUB_USERNAME != ''
     steps:
       - uses: actions/checkout@v7
