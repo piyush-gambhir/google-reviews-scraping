@@ -28,7 +28,7 @@ Issues = "https://github.com/piyush-gambhir/google-reviews-scraping/issues"
 
 [project.optional-dependencies]
 s3 = ["boto3>=1.43"]
-gcs = ["google-cloud-storage>=2.14"]
+gcs = ["google-cloud-storage>=3.17"]
 dev = [
     "pytest>=9.1",
     "ruff>=0.17",
