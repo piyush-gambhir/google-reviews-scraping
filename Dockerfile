@@ -3,9 +3,9 @@
 # The Playwright base ships the matching browser build and every system library
 # Chromium needs — reproducing that on a slim base is a long, brittle apt list.
 #
-# `noble` (Ubuntu 24.04, Python 3.12), not `jammy` (22.04, Python 3.10): this
-# package needs >= 3.11 for datetime.UTC.
-FROM mcr.microsoft.com/playwright/python:v1.62.0-noble
+# `resolute` (Ubuntu 26.04, Python 3.14), not `noble` (24.04, Python 3.12) or
+# `jammy` (22.04, Python 3.10): this package requires Python >= 3.14.
+FROM mcr.microsoft.com/playwright/python:v1.63.0-resolute
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

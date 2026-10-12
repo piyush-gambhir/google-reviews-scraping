@@ -6,7 +6,9 @@
 #
 # Read the constraints in src/grscraper/awslambda.py before choosing Lambda —
 # the 15-minute ceiling and the ephemeral filesystem both bite here.
-FROM mcr.microsoft.com/playwright/python:v1.62.0-noble
+#
+# `resolute` (Ubuntu 26.04) is the Playwright base that ships Python 3.14.
+FROM mcr.microsoft.com/playwright/python:v1.63.0-resolute
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
