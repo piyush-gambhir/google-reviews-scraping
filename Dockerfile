@@ -5,7 +5,7 @@
 #
 # `resolute` (Ubuntu 26.04, Python 3.14), not `noble` (24.04, Python 3.12) or
 # `jammy` (22.04, Python 3.10): this package requires Python >= 3.14.
-FROM mcr.microsoft.com/playwright/python:v1.63.0-resolute
+FROM mcr.microsoft.com/playwright/python:v1.64.1-resolute
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
