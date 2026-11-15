@@ -1,13 +1,13 @@
-# AWS Lambda container image.
-#
-# Built on the Playwright base rather than the AWS Python base: Chromium's
-# shared-library set is the hard part, and the AWS base does not have it. The
-# Lambda Runtime Interface Client is added on top instead.
-#
-# Read the constraints in src/grscraper/awslambda.py before choosing Lambda —
-# the 15-minute ceiling and the ephemeral filesystem both bite here.
-#
-# `resolute` (Ubuntu 26.04) is the Playwright base that ships Python 3.14.
+
+
+
+
+
+
+
+
+
+
 FROM mcr.microsoft.com/playwright/python:v1.64.1-resolute
 
 ENV PYTHONUNBUFFERED=1 \
@@ -17,7 +17,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /var/task
 
-# LICENSE is required: pyproject lists it in `license-files`.
+
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 RUN pip install --no-cache-dir . awslambdaric \
@@ -25,8 +25,8 @@ RUN pip install --no-cache-dir . awslambdaric \
 
 COPY schemas ./schemas
 
-# Lambda's filesystem is read-only apart from /tmp, and HOME must be writable
-# for Chromium's own scratch files.
+
+
 ENV HOME=/tmp \
     XDG_CACHE_HOME=/tmp/.cache \
     XDG_CONFIG_HOME=/tmp/.config

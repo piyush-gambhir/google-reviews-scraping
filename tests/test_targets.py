@@ -17,7 +17,7 @@ def test_parse_explicit_type():
 
 
 def test_parse_pipe_in_value_keeps_last_segment_as_type():
-    # rpartition means only the final `|type` is treated as the type
+
     assert parse_targets("a|b|name") == [("a|b", "name")]
 
 
@@ -39,7 +39,7 @@ def test_ingest_targets_matches_file_ingest_semantics(tmp_path, monkeypatch):
     first = ingest_targets(parse_targets("alpha\nbeta"), db_path=db_path)
     assert first == {"inserted": 2, "skipped": 0}
 
-    # re-running is a no-op, which is what makes a scheduled sync safe
+
     second = ingest_targets(parse_targets("alpha\nbeta"), db_path=db_path)
     assert second == {"inserted": 0, "skipped": 2}
 

@@ -40,11 +40,11 @@ def ingest_file(path: Path, db_path: Path | None = None) -> dict:
     with closing(connect(db_path)) as conn, conn, transaction(conn):
         for value, declared_type in _iter_rows(path):
             if declared_type and declared_type not in INPUT_TYPES:
-                # A Maps URL contains commas (@lat,lng,zoom), so an unquoted URL
-                # in a `value,type` CSV splits across both columns and arrives
-                # here with a longitude as its "type". Accepting that silently
-                # ingests a truncated URL, which then resolves to the wrong
-                # place — or to a plausible-looking one — and nobody notices.
+
+
+
+
+
                 raise ValueError(
                     f"{path}: unknown input type {declared_type!r} for {value!r}. "
                     f"Expected one of {sorted(INPUT_TYPES)}. "
@@ -64,10 +64,10 @@ def ingest_file(path: Path, db_path: Path | None = None) -> dict:
                 if value.startswith("/g/"):
                     biz.google_kg_id = value
                 else:
-                    # A `ChIJ…` Places API id decodes straight to the hex
-                    # fingerprint. Every Maps surface speaks hex and none accept
-                    # `ChIJ…`, so storing it undecoded would send a literal
-                    # place id into a URL slot that cannot resolve it.
+
+
+
+
                     biz.place_fingerprint = fingerprint_from_place_id(value) or value
             row_id = insert_business(conn, biz)
             if row_id is None:

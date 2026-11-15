@@ -10,13 +10,13 @@ def test_ingest_csv_with_header(tmp_path, monkeypatch):
     inp.write_text(
         "value,type\n"
         "acme coffee roasters,\n"
-        # quoted: a Maps URL contains commas and would otherwise split columns
+
         '"https://www.google.com/maps/place/Foo/@1,2,17z/data=!1s0xab:0xcd!16s%2Fg%2Ftest",\n'
         "0xab:0xcd,place_id\n",
         encoding="utf-8",
     )
     result = ingest_file(inp, db_path=db_path)
-    # Both maps_url and the explicit place_id share the place fingerprint, so one is dedup'd
+
     assert result["inserted"] >= 2
 
     with db.connect(db_path) as conn:

@@ -28,17 +28,17 @@ def client_hint_headers(user_agent: str, platform: str = '"macOS"') -> dict[str,
     derived from the live UA rather than hardcoded.
     """
     major = chrome_major(user_agent)
-    # Only headers that are valid on EVERY request may go in here: Playwright
-    # applies them context-wide, to subresources and XHR as well as navigations.
-    # Navigation-only headers are actively harmful, and both failures are silent:
-    #   * Sec-Fetch-* / Upgrade-Insecure-Requests are browser-controlled per
-    #     request. Forcing `Sec-Fetch-Dest: document` onto a subresource makes
-    #     Chromium reject it with net::ERR_INVALID_ARGUMENT — Maps' own scripts
-    #     fail to load and the app renders a blank body.
-    #   * A document `Accept: text/html,...` on Maps' review XHRs makes Google
-    #     answer them with HTML, so the panel renders with the reviews tab and
-    #     every review card missing. That is the "withheld reviews" symptom this
-    #     module was written to defeat; it was causing it.
+
+
+
+
+
+
+
+
+
+
+
     headers = {
         "Accept-Language": "en-US,en;q=0.9",
     }
@@ -51,8 +51,8 @@ def client_hint_headers(user_agent: str, platform: str = '"macOS"') -> dict[str,
     return headers
 
 
-# Runs before any page script. Each patch corresponds to a check that headless
-# Chromium fails and headed Chrome passes.
+
+
 INIT_SCRIPT = """
 // navigator.webdriver is the single most-checked automation flag.
 Object.defineProperty(navigator, 'webdriver', {get: () => undefined});

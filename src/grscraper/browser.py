@@ -69,8 +69,8 @@ def browser_context(headless: bool = True, profile_dir: Path | None = None):
         launch_kwargs["channel"] = config.BROWSER_CHANNEL
     if config.TIMEZONE:
         launch_kwargs["timezone_id"] = config.TIMEZONE
-    # Only override the UA when asked. A pinned string drifts out of sync with
-    # the bundled browser, and the mismatch is itself a fingerprinting signal.
+
+
     if config.USER_AGENT:
         launch_kwargs["user_agent"] = config.USER_AGENT
 
@@ -90,7 +90,7 @@ def browser_context(headless: bool = True, profile_dir: Path | None = None):
 def _apply_stealth(context: BrowserContext) -> None:
     """Align headers and the JS surface with a real Chrome. Best effort."""
     if not config.STEALTH:
-        # Still send a sane Accept-Language so results aren't localised oddly.
+
         context.set_extra_http_headers({"Accept-Language": config.ACCEPT_LANGUAGE})
         return
     try:

@@ -6,15 +6,15 @@ from urllib.parse import quote
 PLACE_FINGERPRINT_RE = re.compile(r"!1s(0x[0-9a-fA-F]+:0x[0-9a-fA-F]+)")
 GOOGLE_KG_ID_RE = re.compile(r"!16s(?:%2F|/)g(?:%2F|/)([^!?/&]+)")
 LATLNG_RE = re.compile(r"@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)")
-# `@lat,lng` is the map viewport, which is not the place: a URL shared from a
-# zoomed-out search can sit a hundred kilometres away. `!3d!4d` inside the data
-# payload is the listing's own position, so prefer it when present.
+
+
+
 PLACE_LATLNG_RE = re.compile(r"!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)")
 PLACE_FINGERPRINT_PLAIN_RE = re.compile(r"^0x[0-9a-fA-F]+:0x[0-9a-fA-F]+$")
 KG_ID_PLAIN_RE = re.compile(r"^/g/[A-Za-z0-9_]+$")
-# Places API place ids: 27 base64url chars. The ChIJ/GhIJ prefix is not a magic
-# string, it is the protobuf framing itself (bytes 0a 12 09) showing through the
-# encoding, which is why only these decode to a fingerprint.
+
+
+
 GOOGLE_PLACE_ID_RE = re.compile(r"^(?:ChIJ|GhIJ)[A-Za-z0-9_-]{23}$")
 
 
@@ -152,6 +152,6 @@ def maps_place_by_id_url(place_id: str) -> str:
     cid = cid_from_fingerprint(place_id)
     if cid is not None:
         return f"https://www.google.com/maps?cid={cid}"
-    # Knowledge Graph ids have no reliable direct URL, so fall back to search
-    # and let the result picker do the work. Best effort.
+
+
     return maps_search_url(place_id)

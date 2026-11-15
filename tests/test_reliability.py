@@ -213,7 +213,7 @@ def test_captcha_during_scroll_is_detected(monkeypatch):
     monkeypatch.setattr(reviews, "is_captcha", Mock(side_effect=[False, True]))
     with pytest.raises(CaptchaError):
         reviews._scroll_load_all(page)
-    assert page.evaluate.call_count == 1  # only scrolling, no count after CAPTCHA
+    assert page.evaluate.call_count == 1
 
 
 def test_scrolling_deadline_stops_collection(monkeypatch):
@@ -259,11 +259,11 @@ def test_missing_reviews_pane_retries_on_a_fresh_context(state, contexts, monkey
 
     assert result["done"] == 1 and result["failed"] == 0
     assert result["reviews_added"] == 3
-    # Three distinct contexts: the bucket is drawn at context creation and a
-    # reload or a new page inside the same one never re-rolls it.
+
+
     assert len({id(ctx) for ctx in contexts}) == 3
-    # Attempt 1 keeps the persistent profile so consent survives; retries get a
-    # throwaway user_data_dir, removed afterwards.
+
+
     assert contexts[0].profile_dir is None
     assert all(ctx.profile_dir is not None for ctx in contexts[1:])
     assert not any(ctx.profile_dir.exists() for ctx in contexts[1:])
@@ -283,7 +283,7 @@ def test_exhausted_pane_attempts_are_one_queue_retry(state, contexts, monkeypatc
 
     assert result["done"] == 0 and result["failed"] == 1
     assert len(contexts) == 3
-    # In-run context attempts are not queue retries; the row keeps its budget.
+
     with db.connect() as conn:
         row = conn.execute("SELECT status, retry_count FROM businesses").fetchone()
     conn.close()

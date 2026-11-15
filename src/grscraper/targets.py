@@ -67,10 +67,10 @@ def ingest_targets(targets: list[tuple[str, str | None]], db_path=None) -> dict:
                 if value.startswith("/g/"):
                     biz.google_kg_id = value
                 else:
-                    # A `ChIJ…` Places API id decodes straight to the hex
-                    # fingerprint. Every Maps surface speaks hex and none accept
-                    # `ChIJ…`, so storing it undecoded would send a literal
-                    # place id into a URL slot that cannot resolve it.
+
+
+
+
                     biz.place_fingerprint = fingerprint_from_place_id(value) or value
             if insert_business(conn, biz) is None:
                 skipped += 1

@@ -12,7 +12,7 @@ from .resolver import CaptchaError
 
 log = logging.getLogger(__name__)
 
-# The reviews pane renders in well under a second when it renders at all.
+
 REVIEWS_PANE_TIMEOUT_MS = 8000
 
 
@@ -43,8 +43,8 @@ def is_limited_view(page: Page) -> bool:
             )
         )
     except Exception:
-        # A page that cannot be evaluated is a different failure; let the caller
-        # report the missing pane rather than masking it as a limited view.
+
+
         return False
 
 

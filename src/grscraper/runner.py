@@ -115,16 +115,16 @@ def run(workers: int = 1, limit: int | None = None, headless: bool = True) -> di
             if index:
                 _sleep_business_jitter()
             original_fingerprint = biz.place_fingerprint
-            # Decided once per business: an attempt on a new context starts from
-            # a blank page, so it has to redo the navigation that resolved it.
+
+
             needs_resolve = biz.status in ("queued", "failed", "resolved")
             collected = 0
 
-            # One context per attempt, not one per run. Whether Maps serves the
-            # full place panel or the cut-down Overview/About one is drawn when
-            # the context is created and never re-rolls inside it, so a single
-            # context around the whole queue let one bad draw fail every
-            # business in the run.
+
+
+
+
+
             for attempt in range(config.PANE_ATTEMPTS):
                 if attempt:
                     _sleep_business_jitter()
@@ -171,8 +171,8 @@ def run(workers: int = 1, limit: int | None = None, headless: bool = True) -> di
                                 ),
                             )
                         except CaptchaError:
-                            # Never retried. A CAPTCHA means Google has decided
-                            # about this client, and more contexts only dig in.
+
+
                             blocked = True
                             biz.status = "blocked"
                             biz.status_reason = "captcha during reviews"
@@ -182,7 +182,7 @@ def run(workers: int = 1, limit: int | None = None, headless: bool = True) -> di
                             notes.append(f"blocked at business id={biz.id}")
                             break
                         except ReviewsPaneUnavailable as e:
-                            # The one failure a fresh context can actually fix.
+
                             if attempt + 1 < config.PANE_ATTEMPTS:
                                 log.warning(
                                     "biz=%s no reviews pane, retrying on a fresh context (%d/%d)",
@@ -223,12 +223,12 @@ def run(workers: int = 1, limit: int | None = None, headless: bool = True) -> di
                             biz.review_count,
                         )
 
-                        # Zero cards off a resolved place page is a scrape failure,
-                        # not an empty business. It means the reviews pane never
-                        # rendered — bot detection, or selectors that need updating.
-                        # Recording it as `done` would let a scheduled run report
-                        # success while delivering nothing, which is the one failure
-                        # mode nobody notices.
+
+
+
+
+
+
                         if not parsed:
                             biz.status = "failed"
                             biz.status_reason = (
@@ -249,8 +249,8 @@ def run(workers: int = 1, limit: int | None = None, headless: bool = True) -> di
                         done += 1
                         break
                 except Exception as exc:
-                    # Navigation, parsing, page creation and persistence failures
-                    # must not strand a row or discard the rest of the queue.
+
+
                     log.exception("business %s failed", biz.id)
                     biz.place_fingerprint = original_fingerprint
                     biz.status = "failed"

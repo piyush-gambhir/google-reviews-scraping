@@ -41,8 +41,8 @@ class ScrapeRequest:
         parsed = parse_targets(targets) if targets is not None else []
         if len(parsed) > 1000 or any(len(value) > 8192 for value, _ in parsed):
             raise ValueError("at most 1000 targets, each at most 8192 characters")
-        # Only trusted Maps URLs may be navigated from external requests.
-        # This validates the initial URL; browser egress still needs platform controls.
+
+
         for value, declared in parsed:
             if (declared or classify_input(value)) == "maps_url":
                 url = urlsplit(value)

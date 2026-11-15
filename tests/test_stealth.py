@@ -20,7 +20,7 @@ def test_client_hints_match_the_running_browser():
 
 
 def test_client_hints_omitted_when_version_unknown():
-    # better to send no client hints than ones invented from nothing
+
     h = client_hint_headers("some non-chrome agent")
     assert "Sec-CH-UA" not in h
     assert h["Accept-Language"] == "en-US,en;q=0.9"
