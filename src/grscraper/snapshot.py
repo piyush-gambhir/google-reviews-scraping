@@ -18,8 +18,6 @@ from datetime import UTC, datetime
 from . import config
 from .db import connect
 
-
-
 _INTERNAL_BUSINESS_COLUMNS = ("status", "status_reason", "retry_count")
 
 
