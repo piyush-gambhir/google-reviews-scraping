@@ -5,7 +5,7 @@
 
 
 
-FROM mcr.microsoft.com/playwright/python:v1.64.1-resolute
+FROM mcr.microsoft.com/playwright/python:v1.65.2-resolute
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
