@@ -31,7 +31,7 @@ def test_fetch_next_filters_by_status_and_retries(tmp_path):
         b = db.insert_business(conn, Business(input_value="b", input_type="name"))
         c = db.insert_business(conn, Business(input_value="c", input_type="name"))
         conn.commit()
-        # mark `b` done, `c` failed too many times
+
         conn.execute("UPDATE businesses SET status='done' WHERE id=?", (b,))
         conn.execute("UPDATE businesses SET status='failed', retry_count=10 WHERE id=?", (c,))
         conn.commit()

@@ -15,8 +15,8 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
 ]
-# Deliberately two runtime dependencies. Sinks that need a cloud SDK import it
-# lazily and declare it as an extra, so the base image stays small.
+
+
 dependencies = [
     "playwright>=1.63",
     "beautifulsoup4>=4.15",

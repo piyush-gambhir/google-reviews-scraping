@@ -41,11 +41,11 @@ def _wait_for_place_url(page: Page, max_ms: int = 8000) -> bool:
 
 def _navigate_for_input(page: Page, biz: Business) -> None:
     if biz.input_type == "maps_url":
-        # A URL copied out of Maps *search results* carries the originating
-        # query in its data payload, and that form reliably comes back as the
-        # cut-down panel: measured 0/5 against a live listing, versus a place
-        # page every time via `?cid=`. Once we have the fingerprint the URL the
-        # user pasted has told us everything it can, so stop navigating to it.
+
+
+
+
+
         url = maps_place_by_id_url(biz.place_fingerprint) if biz.place_fingerprint else (
             biz.canonical_url or biz.input_value
         )

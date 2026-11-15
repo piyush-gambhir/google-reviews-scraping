@@ -72,8 +72,8 @@ def cmd_sync(args: argparse.Namespace) -> int:
     )
     result.pop("payload", None)
     run = result["run"]
-    # Summary goes to stderr: the `-` sink owns stdout, so `sync > out.json`
-    # must yield the payload and nothing else.
+
+
     print(
         f"targets={result['targets']} requeued={result['requeued']} "
         f"done={run['done']} failed={run['failed']} blocked={run['blocked']} "

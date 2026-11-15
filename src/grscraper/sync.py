@@ -61,9 +61,9 @@ def sync(
 
     requeued = 0
     with closing(db_connect()) as conn, conn:
-        # Finish the requested batch before starting another refresh cycle.
-        # Otherwise repeated limit=1 calls keep requeueing the first done row
-        # and starve every later target.
+
+
+
         pending_targets = any(
             conn.execute(
                 "SELECT 1 FROM businesses WHERE input_value=? AND input_type=? "
@@ -103,8 +103,8 @@ def sync(
     if run_result["blocked"] or blocked_remaining:
         exit_code = EXIT_BLOCKED
     elif run_result["failed"] or exhausted:
-        # Surface partial failures. Exiting 0 here would let a weekly schedule
-        # look healthy forever while quietly scraping nothing.
+
+
         exit_code = EXIT_SCRAPE_FAILED
     elif delivery["errors"]:
         exit_code = EXIT_SINK_FAILED

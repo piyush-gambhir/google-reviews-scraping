@@ -18,8 +18,8 @@ from datetime import UTC, datetime
 from . import config
 from .db import connect
 
-# Columns that exist only to drive the scraper's own queue and carry no
-# meaning for a consumer.
+
+
 _INTERNAL_BUSINESS_COLUMNS = ("status", "status_reason", "retry_count")
 
 

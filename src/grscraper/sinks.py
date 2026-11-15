@@ -155,7 +155,7 @@ def deliver(payload: dict, uris: list[str]) -> dict:
         try:
             delivered.append(deliver_one(payload, uri))
             log.info("delivered to %s", uri)
-        except Exception as e:  # SDK, socket and filesystem errors vary by sink
+        except Exception as e:
             errors.append(str(e))
             log.error("sink failed: %s", e)
     return {"delivered": delivered, "errors": errors}

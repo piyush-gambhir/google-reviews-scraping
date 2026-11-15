@@ -21,7 +21,7 @@ class ScrapeBusyError(RuntimeError):
 
 @contextmanager
 def scrape_lock():
-    # sync() calls run() in the same thread; allow that nested acquisition.
+
     paths = tuple(
         sorted(
             {
@@ -46,7 +46,7 @@ def scrape_lock():
             yield
         finally:
             _local.owner = None
-    # Closing handles releases locks even on exceptions; process exit does too.
+
 
 
 def exclusive_scrape(func):

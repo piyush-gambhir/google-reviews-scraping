@@ -22,7 +22,7 @@ MAX_BODY_BYTES = 1_048_576
 
 class Handler(BaseHTTPRequestHandler):
     server_version = f"grscraper/{config.SCRAPER_VERSION}"
-    timeout = 30  # socket reads only; does not terminate browser work
+    timeout = 30
 
     def log_message(self, fmt: str, *args) -> None:
         log.info("%s - %s", self.address_string(), fmt % args)
@@ -80,7 +80,7 @@ class Handler(BaseHTTPRequestHandler):
         ):
             self._send(400, {"error": "bad Content-Length"})
             return
-        # Compare length text before int conversion (also bounds huge integers).
+
         length_text = lengths[0].lstrip("0") if lengths else ""
         if len(length_text) > 7:
             self._send(413, {"error": "request body exceeds 1 MiB"})

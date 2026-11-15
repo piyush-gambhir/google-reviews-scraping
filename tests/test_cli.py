@@ -25,11 +25,11 @@ def test_sync_writes_only_the_payload_to_stdout(isolated, capsys):
     assert cli.main(["sync", "--sink", "-"]) == 0
     captured = capsys.readouterr()
 
-    doc = json.loads(captured.out)          # would raise "Extra data" before the fix
+    doc = json.loads(captured.out)
     assert doc["schema_version"] == "1.0"
     assert doc["businesses"] == []
 
-    # the human summary is still emitted, just on the other stream
+
     assert "targets=0" in captured.err
 
 
@@ -43,7 +43,7 @@ def test_sync_to_a_file_sink_leaves_stdout_empty(isolated, capsys):
 
 
 def test_sync_returns_sink_failure_exit_code(isolated, capsys):
-    # port 1 is reserved and refuses connections, so the sink cannot deliver
+
     assert cli.main(["sync", "--sink", "http://127.0.0.1:1/ingest"]) == 3
     assert "!!" in capsys.readouterr().err
 

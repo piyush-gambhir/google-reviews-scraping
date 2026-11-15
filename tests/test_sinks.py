@@ -55,7 +55,7 @@ class _Recorder(BaseHTTPRequestHandler):
         self.send_response(type(self).status)
         self.end_headers()
 
-    def log_message(self, *args):  # keep test output quiet
+    def log_message(self, *args):
         pass
 
 

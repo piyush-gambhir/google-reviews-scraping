@@ -9,7 +9,7 @@ from grscraper.url import (
     place_id_from_fingerprint,
 )
 
-# Structurally a real Maps place URL; every identifier in it is synthetic.
+
 CANONICAL_URL = (
     "https://www.google.com/maps/place/Acme+Coffee+Roasters/"
     "@12.3456789,98.7654321,17z/data=!4m8!3m7!1s0x1234567890abcdef:0xfedcba0987654321"
@@ -43,7 +43,7 @@ def test_maps_search_url_encoding():
 
 
 def test_cid_from_fingerprint():
-    # the second half of the hex fingerprint is the CID
+
     assert cid_from_fingerprint("0x1234567890abcdef:0xfedcba0987654321") == 0xFEDCBA0987654321
     assert cid_from_fingerprint("not a fingerprint") is None
     assert cid_from_fingerprint("/g/11examplekg") is None
@@ -63,7 +63,7 @@ def test_place_by_id_url_uses_cid_for_fingerprints():
 
 
 def test_place_by_id_url_falls_back_to_search_for_kg_ids():
-    # Knowledge Graph ids have no reliable direct URL; search is best-effort.
+
     url = maps_place_by_id_url("/g/11examplekg")
     assert url.startswith("https://www.google.com/maps/search/")
 
@@ -74,7 +74,7 @@ def test_reviews_url_contains_the_show_reviews_flag():
     assert url is not None
     assert "!9m1!1b1" in url
     assert "0x89c7aa3edff67c63:0x3672dc0023b11b8f" in url
-    # the @lat,lng,17z segment is required; without it Maps renders no place
+
     assert "/@39.6873533,-75.741334,17z/" in url
     assert url.endswith("?hl=en")
 
@@ -84,7 +84,7 @@ def test_reviews_url_needs_a_fingerprint_and_coordinates():
     assert maps_reviews_url(None, 39.0, -75.0) is None
     assert maps_reviews_url(fp, None, -75.0) is None
     assert maps_reviews_url(fp, 39.0, None) is None
-    # a KG id is not a fingerprint and cannot build this URL
+
     assert maps_reviews_url("/g/11examplekg", 39.0, -75.0) is None
 
 
@@ -104,7 +104,7 @@ def test_viewport_coordinates_used_when_no_place_coordinates():
     assert parsed["longitude"] == -76.30
 
 
-# Google's own documented example place id, plus the Googleplex.
+
 PLACE_ID_CASES = [
     ("ChIJN1t_tDeuEmsRUsoyG83frY4", "0x6b12ae37b47f5b37:0x8eaddfcd1b32ca52", 10281119596374313554),
     ("ChIJj61dQgK6j4AR4GeTYWZsKWw", "0x808fba02425dad8f:0x6c296c66619367e0", 7793879817120868320),
@@ -127,15 +127,15 @@ def test_place_id_rejects_what_it_cannot_decode():
     assert fingerprint_from_place_id("") is None
     assert fingerprint_from_place_id("not-a-place-id") is None
     assert fingerprint_from_place_id("/g/11examplekg") is None
-    # right prefix, wrong length
+
     assert fingerprint_from_place_id("ChIJshort") is None
-    # a longer (non-27-char) id is not guessed at
+
     assert fingerprint_from_place_id("ChIJ" + "A" * 40) is None
 
 
 def test_place_id_is_classified_as_place_id():
     assert classify_input("ChIJN1t_tDeuEmsRUsoyG83frY4") == "place_id"
     assert classify_input("GhIJQWDl0CIeQUARxks3icF8U8A") == "place_id"
-    # unchanged behaviour for the other forms
+
     assert classify_input("0xab:0xcd") == "place_id"
     assert classify_input("acme coffee") == "name"

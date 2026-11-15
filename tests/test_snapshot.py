@@ -64,7 +64,7 @@ def test_photo_urls_are_decoded_to_a_list(seeded):
     doc = snapshot.build()
     reviews = {r["review_id"]: r for r in doc["businesses"][0]["reviews"]}
     assert reviews["rev-1"]["photo_urls"] == ["https://example.test/a.jpg"]
-    # absent photos become [] rather than null, so consumers can always iterate
+
     assert reviews["rev-2"]["photo_urls"] == []
     assert "photo_urls_json" not in reviews["rev-1"]
 
